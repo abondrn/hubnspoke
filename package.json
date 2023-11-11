@@ -1,0 +1,40 @@
+{
+  "name": "hubnspoke",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "cljs-repl": "clojure -m figwheel.main -b dev -r && lsof -ti :9500 | xargs kill",
+    "lint": "clj-kondo --lint src --fail-level error",
+    "clerk": "npm run lint && clj -M -e \"(require '[nextjournal.clerk :as clerk]) (clerk/serve! {:browser true :watch-paths [\\\"notebooks\\\" \\\"src/clj\\\" \\\"deps.edn\\\"]})\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@bitwarden/sdk-napi": "^0.2.1",
+    "@notionhq/client": "^2.2.9",
+    "airtable": "^0.12.1",
+    "apple-icloud": "^1.1.0",
+    "garmin-connect": "^1.5.1",
+    "googleapis": "^122.0.0",
+    "hypothesis-api-client": "^0.1.14",
+    "javascript-search-input": "^0.1.0",
+    "katex": "0.12.0",
+    "liquery": "^0.10.0",
+    "markdown-it": "12.3.2",
+    "markdown-it-block-image": "0.0.3",
+    "markdown-it-footnote": "3.0.3",
+    "markdown-it-texmath": "0.9.7",
+    "markdown-it-toc-done-right": "4.2.0",
+    "punycode": "2.1.1",
+    "rescuetime.js": "^0.0.3",
+    "spotify-web-api-node": "^5.0.2",
+    "tiktok-scraper": "^1.4.36",
+    "trakt.tv": "^8.2.0"
+  },
+  "devDependencies": {
+    "shadow-cljs": "^2.25.10"
+  }
+}

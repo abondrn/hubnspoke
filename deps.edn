@@ -1,0 +1,32 @@
+{:deps {
+        tick/tick {:mvn/version "0.7.5"} ; time manipulation
+
+        ; CLJS
+        org.clojure/clojurescript {:mvn/version "1.10.773"}
+        com.cognitect/transit-cljs  {:mvn/version "RELEASE"} ; marshalling Transit data to/from ClojureScript
+        cljs-ajax/cljs-ajax {:mvn/version "0.8.1"} ; CLJ/S AJAX
+
+        ; abstractions & utilities
+        org.clojure/core.async {:mvn/version "1.6.681"} ; asynchrony
+        org.clojure/core.logic {:mvn/version "RELEASE"} ; logic programming
+        org.clojure/core.typed {:mvn/version "RELEASE"} ; type checking
+        com.yetanalytics/flint {:mvn/version "0.2.1"} ; SPARQL DSL
+        funcool/promesa {:mvn/version "11.0.678"} ; promises
+        meander/epsilon {:mvn/version "0.0.650"} ; data manipulation 
+        locksmith/locksmith {:mvn/version "0.1.1"} ; GraphQL DSL
+
+        io.github.zmedelis/bosquet {:mvn/version "v2023.10.31"} ; LLM Ops
+        overtone/overtone {:mvn/version "0.10.3"} ; audio programming
+        
+        ; analysis
+        io.github.nextjournal/clerk {:mvn/version "0.15.957"} ; notebooks
+        arrowic/arrowic {:mvn/version "0.1.1"} ; rendering graphs
+
+        ; dev 
+        com.bhauman/rebel-readline-cljs {:mvn/version "0.1.4"}
+        com.bhauman/figwheel-main {:mvn/version "0.2.18"}
+        spyscope/spyscope {:mvn/version "0.1.6"} ; Trace-oriented debugging tools for Clojure
+        mx.cider/haystack {:mvn/version "0.3.1"} ; Let's make the most of Clojure's infamous stacktraces! 
+        expound/expound {:mvn/version "0.9.0"} ; better errors for spec
+        }
+ :paths ["src/clj"]}
