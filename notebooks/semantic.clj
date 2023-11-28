@@ -20,23 +20,17 @@
 
 {:nextjournal.clerk/error-on-missing-vars :off}
 
-(defmacro def+apply [var val & fns]
+(defmacro def+apply "Macro to create a definition then apply various functions on it"
+  [var val & fns]
   `(do
      (def ~var ~val)
      ~@(for [f (butlast fns)]
-         `(-> ~var ~f print))
+         (println `(~f ~var) "->" (f var)))
      (-> ~var ~(last fns))))
 
 (def+apply jcm (s/entity "James Clerk Maxwell") s/entity-data)
 
 (def+apply invented-or-discovered-by :wdt/P61 s/entity-data)
-
-;;;ORDER BY ASC(xsd:integer(STRAFTER(STR(?property), 'P')))
-(def all-props
-  (s/query '{:select [?property ?propertyLabel
-                      ?propertyType ?propertyDescription ?propertyAltLabel]
-             :where [[?property :wikibase/propertyType ?propertyType]]
-             :limit 1}))
 
 ;; Now we can ask questions, like "what is James Clerk Maxwell famous
 ;; for having invented or discovered?"
@@ -268,7 +262,7 @@
            :where [[?item :wdt/P5305 ?endpoint]]}))
 
 ; TODO add timeout
-(defn liveness [endpoint]
+(defn liveness "Runs a minimal query to check if the SPARQL service is responsive" [endpoint]
   (do-query "SELECT * WHERE { ?s ?p ?o . } LIMIT 1" endpoint))
 
 (liveness (:endpoint (rand-nth endpoints)))

@@ -1,3 +1,8 @@
+;; utilities to assist hitting the Wikidata endpoint using flint and AJAX
+;; then manipulate the results
+
+
+;; TODO: document with links to https://www.wikidata.org/wiki/Wikidata:Data_access
 (ns semantic
   (:require [ajax.core :as ajax]
             [clojure.data.json :as json]
@@ -7,7 +12,8 @@
             [expound.alpha :as expound]))
 
 #_{:clj-kondo/ignore [:unresolved-symbol]}
-(defn async-get [endpoint params & [then else]]
+(defn async-get "Sends a GET request, with additional query params and optional success and failure callback hanlders"
+  [endpoint params & [then else]]
   (let [promise (promise)
         default-callback #(deliver promise %)
         then-callback (if then #(deliver promise (then %)) default-callback)
@@ -17,13 +23,13 @@
                               :error-handler else-callback))
     promise))
 
-(defn async-get-json [endpoint params & [then else]]
+(defn async-get-json
+  "Retrieves the keyword-map JSON representation of a REST GET endpoint"
+  [endpoint params & [then else]] ; str map fn fn -> promise[json]
   (let [parse #(json/read-str % :key-fn keyword)
         then-callback (if then (comp then parse) parse)]
     (async-get endpoint (assoc params :response-format :text) then-callback else)))
 
-;; TODO several of the downstream functions should probably have two
-;; arities so one can do things like (entity :es "churro").
 (def ^:dynamic *default-language* (atom :en))
 
 (defn default-language
@@ -123,7 +129,7 @@
            :else e))
    sparql-form))
 
-(defn do-query
+(defn do-query ; str -> json
   "Query the WikiData endpoint with the SPARQL query in `sparql-text` and convert the return into Clojure data structures."
   [sparql-text & [endpoint]]
   (-> endpoint
@@ -135,7 +141,7 @@
 
 (spec/check-asserts true)
 
-(defn format-query [query]
+(defn format-query [query] ; flint-form -> str
   (binding [spec/*explain-out* expound/printer]
     (spec/assert qs/query-spec query))
   (f/format-query query))
@@ -146,14 +152,14 @@
    (query {} sparql-form))
   ([opts sparql-form]
    (-> sparql-form
-       clean-up-symbols-and-seqs
+       clean-up-symbols-and-seqs ; flint-form -> flint-form
        (update :prefixes merge prefixes)
        (update :where conj [:service :wikibase/label
                             [[:bd/serviceParam :wikibase/language (str "[AUTO_LANGUAGE]," (name (default-language)))]]])
        format-query
        do-query)))
 
-(def entity*
+(def entity* ; kw str any -> kw
   "Memoized implementation of language-aware entity lookup."
   (memoize
    (fn [lang label criteria]
@@ -181,14 +187,14 @@
                         [(default-language) label])]
     (entity* lang label' criteria)))
 
-(defn wdt->wd [arc]
+(defn wdt->wd [arc] ; kw -> kw
   (let [prefix (namespace arc)
         id (name arc)]
     (if (or (#{"p" "ps" "wdt"} prefix) (nil? prefix))
       (keyword "wd" id)
       arc)))
 
-(def label*
+(def label*  ; kw kw -> str
   "Memoized implementation of language-aware label lookup."
   (memoize
    (fn [lang id]
@@ -205,7 +211,7 @@
   ([id] (label* (default-language) id))
   ([lang id] (label* lang id)))
 
-(def describe*
+(def describe* ; kw kw -> map[kw]
   "Memoized implementation of language-aware description lookup."
   (memoize
    (fn [lang id]
@@ -224,7 +230,7 @@
 (defn search
   ([text]
    (search (default-language) text))
-  ([lang text]
+  ([lang text] ; kw str -> map[kw]
    (->> (-> "https://www.wikidata.org/w/api.php"
             (async-get-json
              {:params {:action "wbsearchentities"
@@ -240,7 +246,8 @@
                 :description description
                 :label (get-in display [:label :value])})))))
 
-(defn apply-map [m kw-functions]
+(defn apply-map "Modifies a map by transforming values according to keys and mappers in kw-functions"
+  [m kw-functions] ; map[K V] map[K (V -> W)] -> map[K W]
   (into m
         (for [[k f] kw-functions
               :let [v (m k)]
@@ -274,7 +281,8 @@
                   :units (-> datavalue :value :unit)}
       [datatype datavalue])))
 
-(defn claims->clj [claims]
+(defn claims->clj "Parses the SPARQL data type into its native Clojure value while retaining additional metadata"
+  [claims]
   (into {}
         (for [[p values] claims]
           [p
@@ -285,7 +293,8 @@
               :hash (ms :hash)
               :rank (v :rank)})])))
 
-(defn entity-data [item & [lang]]
+(defn entity-data "Trims down the entity data for easier viewing for a specific language"
+  [item & [lang]] ; kw kw -> map[kw]
   (let [lang' (or lang (default-language))
         full (entity-data* (name item))
         get-lang #(and (some? %) (-> % lang' :value))]
@@ -316,7 +325,7 @@
 ; TODO pass custom filters
 (defn search-properties-by-label
   "Find properties which contain a string in their label"
-  [label]
+  [label] ; str -> [map]
   (->> `{:select-distinct [?property ?label]
          :where [[?property :a :wikibase/Property]
                  [?property ~has-label ?label]
@@ -329,7 +338,7 @@
 
 (defn get-property
   "Returns the unique property which has a given label, or false"
-  [label]
+  [label] ; kw -> map
   (let [res (search-properties-by-label label)
         unique? (= 1 (count res))
         first-prop (first (keys res))]
@@ -337,7 +346,7 @@
 
 (defn coalesce-options
   "Allows matching against a tuple, where each part is either a single value or a list of options"
-  [s v o]
+  [s v o] ; V|[V] x 3 -> [V x 3]
   (let [[subs? preds? objs?] (map sequential? [s v o])
         pred (if preds? (cons 'alt v) v)
         sub (if subs? (first s) s)
@@ -346,11 +355,3 @@
             [(if subs? [:values {sub (rest s)}])
              (if objs? [:values {obj (rest o)}])
              [sub pred obj]])))
-
-#_(defn clojurize-claims [e-data]
-    (reduce
-     (fn [m [prop snaks]]
-       (assoc m (wdt->readable (->> prop name (str "wdt/") keyword))
-              (mapv (comp clojurize-claim :mainsnak) snaks)))
-     {}
-     (:claims e-data)))
