@@ -1,24 +1,19 @@
 ;; utilities to extract structured information from web pages
 ;; I am still figuring out the API so until then this is very much a WIP
 (ns scrape
-  (:require [semantic :refer [async-get]]
-            [clojure.core.match :refer [match]]
+  (:require [clojure.core.match :refer [match]]
             [clojure.string :as str]
             [clojure.set :refer [subset?]]
             [hickory.core :as h]
-            [hickory.select :as hs]))
+            [hickory.select :as hs]
+            
+            [api :as api]))
 
 (defn get-html "Gets the parsed Hickory representation of a web destination"
   [url] ; str -> Hickory
-  (-> @(async-get url {}) h/parse h/as-hickory))
+  (-> @(api/async-request {:uri url}) h/parse h/as-hickory))
 
-(defn parse-wiki-tables
-  [url]
-  (let [dom (get-html url)
-        tables (map extract-table (hs/select (hs/tag :table) dom))]
-    tables))
-
-(def re-word #"\w")
+(def re-word #"\w") 
 
 (defn word-char?
   [char] ; char -> bool
@@ -90,3 +85,9 @@
         header (->> r first :content (map (comp simplify :content)))
         rows (->> r rest (filter #(not (string? %))) (map (comp #(map (comp simplify :content) %) :content)))]
     [header rows]))
+
+(defn parse-wiki-tables
+  [url]
+  (let [dom (get-html url)
+        tables (map extract-table (hs/select (hs/tag :table) dom))]
+    tables))

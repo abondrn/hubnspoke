@@ -1,34 +1,20 @@
 ;; utilities to assist hitting the Wikidata endpoint using flint and AJAX
 ;; then manipulate the results
 
-
 ;; TODO: document with links to https://www.wikidata.org/wiki/Wikidata:Data_access
 (ns semantic
-  (:require [ajax.core :as ajax]
-            [clojure.data.json :as json]
-            [clojure.spec.alpha :as spec]
+  (:require [clojure.spec.alpha :as spec]
             [com.yetanalytics.flint :as f]
             [com.yetanalytics.flint.spec.query :as qs]
-            [expound.alpha :as expound]))
-
-#_{:clj-kondo/ignore [:unresolved-symbol]}
-(defn async-get "Sends a GET request, with additional query params and optional success and failure callback hanlders"
-  [endpoint params & [then else]]
-  (let [promise (promise)
-        default-callback #(deliver promise %)
-        then-callback (if then #(deliver promise (then %)) default-callback)
-        else-callback (if else #(deliver promise (else %)) default-callback)]
-    (ajax/GET endpoint (assoc params
-                              :handler then-callback
-                              :error-handler else-callback))
-    promise))
+            [expound.alpha :as expound]
+            [promesa.core :as p]
+            
+            [api :as api]))
 
 (defn async-get-json
   "Retrieves the keyword-map JSON representation of a REST GET endpoint"
-  [endpoint params & [then else]] ; str map fn fn -> promise[json]
-  (let [parse #(json/read-str % :key-fn keyword)
-        then-callback (if then (comp then parse) parse)]
-    (async-get endpoint (assoc params :response-format :text) then-callback else)))
+  [endpoint query] ; str map -> promise[json]
+    (api/async-request {:uri endpoint :response-format :json-kw :params query}))
 
 (def ^:dynamic *default-language* (atom :en))
 
@@ -93,11 +79,11 @@
   "Convert the values in `result` to Clojure types."
   [result]
   (into {} (map (fn [[k {:keys [type value datatype] :as v}]]
-                  [k (condp = type
+                  [k (case type
                        "uri" (or (uri->keyword #"(.*#)(.*)$" value)
                                  (uri->keyword #"(.*/)([^/]*)$" value)
                                  (:value v))
-                       "literal" (condp = datatype
+                       "literal" (case datatype
                                    "http://www.w3.org/2001/XMLSchema#decimal" (Float/parseFloat value)
                                    "http://www.w3.org/2001/XMLSchema#integer" (Integer/parseInt value)
                                    "http://www.w3.org/2001/XMLSchema#double" (Float/parseFloat value)
@@ -134,9 +120,8 @@
   [sparql-text & [endpoint]]
   (-> endpoint
       (or "https://query.wikidata.org/sparql")
-      (async-get-json {:params {:query sparql-text
-                                :format :json}}
-                      #(->> % :results :bindings (mapv clojurize-values)))
+      (async-get-json {:query sparql-text :format :json})
+      (p/then #(->> % :results :bindings (mapv clojurize-values)))
       deref))
 
 (spec/check-asserts true)
@@ -233,12 +218,12 @@
   ([lang text] ; kw str -> map[kw]
    (->> (-> "https://www.wikidata.org/w/api.php"
             (async-get-json
-             {:params {:action "wbsearchentities"
-                       :search text
-                       :language (name lang)
-                       :uselang (name lang)
-                       :type "item"
-                       :format "json"}})
+             {:action "wbsearchentities"
+              :search text
+              :language (name lang)
+              :uselang (name lang)
+              :type "item"
+              :format "json"})
             deref
             :search)
         (map (fn [{:keys [:description :id :display] :as vs}]
